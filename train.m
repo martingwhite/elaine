@@ -1,7 +1,7 @@
 function [TRANS_HAT,EMIS_HAT] = train(num_states,num_emissions)
 
 % each trace is stored in a [1-9][0-9]*.dat
-data_path = '../Hmm/*.dat'; % FIXME
+data_path = './*.dat'; % FIXME
 
 % code for generating dummy data...
 %{
