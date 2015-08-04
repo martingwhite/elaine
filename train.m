@@ -1,7 +1,8 @@
-function [TRANS_HAT,EMIS_HAT] = train(num_states,num_emissions)
+function [TRANS_HAT,EMIS_HAT] = train(pathToData,numStates,numEmissions)
+%pathToData = '.'; numStates = 2; numEmissions = 6;
 
 % each trace is stored in a [1-9][0-9]*.dat
-data_path = './*.dat'; % FIXME
+dataFiles = strcat(pathToData,'/*.dat')
 
 % code for generating dummy data...
 %{
@@ -10,78 +11,47 @@ EMIS = [1/6 1/6 1/6 1/6 1/6 1/6; 7/12 1/12 1/12 1/12 1/12 1/12];
 
 for i = 1:2
     [seq,states] = hmmgenerate(100/i,TRANS,EMIS);
-    disp('size of seq...');
-    disp(num2str(size(seq)));
-    disp('size of states...');
-    disp(num2str(size(states)));
     data = [seq;states];
-    disp('size of data...');
-    disp(num2str(size(data)));
     fid = fopen(strcat(num2str(i),'.dat'),'w');
     fprintf(fid,'%d\t%d\n',data);
     fclose(fid);
 end
 %}
+
 % glob the files containing the traces...
-files = dir(data_path);
+files = dir(dataFiles);
+numFiles = num2str(length(files))
 
-disp('number of files...');
-disp(num2str(length(files)));
-
-corpus_seq = cell(length(files),1);
-corpus_states = cell(length(files),1);
+corpusEmissions = cell(length(files),1);
+corpusStates = cell(length(files),1);
 
 i = 1; % corpora are 1-indexed
 for file = files'
-    disp('filename...');
-    disp(file.name);
     trace = load(file.name); % assumes two columns of tab delimited ints
-    trace = trace'; % 2-by-m since hmm utils operate on rows of data
-    disp('size of trace...');
-    disp(num2str(size(trace))); % 2-by-m where m is $ wc -l file
-    corpus_seq{i} = trace(1,:);
-    corpus_states{i} = trace(2,:);
+    trace = trace'; % 2-by-m; m is $ wc -l file; hmm utils operate on rows
+    corpusEmissions{i} = trace(1,:);
+    corpusStates{i} = trace(2,:);
     i = i + 1;
 end
 
-disp('size of emissions corpus...');
-disp(num2str(size(corpus_seq)));
-
-disp('size of states corpus...');
-disp(num2str(size(corpus_states)));
-
 % either construct random TRANS and EMIS matrices...
-TRGUESS = rand(num_states); % rand \sim U[0,1]
-row_sum = sum(TRGUESS,2);
-TRGUESS = bsxfun(@rdivide,TRGUESS,row_sum); % TRGUESS is row stochastic
-disp('TRGUESS...');
-disp(TRGUESS);
+TRGUESS = rand(numStates); % rand \sim U[0,1]
+rowSum = sum(TRGUESS,2);
+TRGUESS = bsxfun(@rdivide,TRGUESS,rowSum) % TRGUESS is row stochastic
 
-EMITGUESS = rand(num_states,num_emissions);
-row_sum = sum(EMITGUESS,2);
-EMITGUESS = bsxfun(@rdivide,EMITGUESS,row_sum);
-disp('EMITGUESS...');
-disp(EMITGUESS);
+EMITGUESS = rand(numStates,numEmissions);
+rowSum = sum(EMITGUESS,2);
+EMITGUESS = bsxfun(@rdivide,EMITGUESS,rowSum)
 
 % ...or load ML estimates HERE...
-%TRGUESS = load('TRGUESS.dat');
-%EMITGUESS = load('EMITGUESS.dat');
+%TRGUESS = load('TRGUESS.dat')
+%EMITGUESS = load('EMITGUESS.dat')
 
 % apply pseudotransitions and pseudoemissions accordingly...
-[ESTTR,ESTEMIT] = hmmtrain(corpus_seq,TRGUESS,EMITGUESS,...
-    'Maxiterations',1000,'Tolerance',1e-6);
-disp('ESTTR...');
-disp(ESTTR);
-disp('ESTEMIT...');
-disp(ESTEMIT);
+[ESTTR,ESTEMIT] = hmmtrain(corpusEmissions,TRGUESS,EMITGUESS,...
+    'Maxiterations',1000,'Tolerance',1e-6)
 
 % changing the initial state distribution...
-p = repmat(1/num_states,1,num_states); % p \sim U[1,num_states]
-disp('p...');
-disp(p);
-TRANS_HAT = [0 p; zeros(size(ESTTR,1),1) ESTTR];
-disp('TRANS_HAT...');
-disp(TRANS_HAT);
-EMIS_HAT = [zeros(1,size(ESTEMIT,2)); ESTEMIT];
-disp('EMIS_HAT...');
-disp(EMIS_HAT);
+p = repmat(1/numStates,1,numStates) % p \sim U[1,numStates]
+TRANS_HAT = [0 p; zeros(size(ESTTR,1),1) ESTTR]
+EMIS_HAT = [zeros(1,size(ESTEMIT,2)); ESTEMIT]
