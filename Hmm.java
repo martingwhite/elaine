@@ -55,8 +55,8 @@ public class Hmm {
     return e;
   }
 
-  public int interactive(int state) { // istate must index into t_hat
-    int istate = state + 1; //since we augmented TRANS
+  public int interactive(int currentState) { // istate must index into t_hat
+    int istate = currentState + 1; //since we augmented TRANS
     //System.out.println("istate = " + istate);
 
     List<Double> p = new ArrayList<Double>();
