@@ -55,7 +55,7 @@ public class Hmm {
     return e;
   }
 
-  public int interactive(int currentState) { // istate must index into t_hat
+  public int interactive(int currentState) {
     int istate = currentState + 1; //since we augmented TRANS
     //System.out.println("istate = " + istate);
 
@@ -123,7 +123,7 @@ public class Hmm {
       if (variate < p.get(i))
         break;
     }
-    System.out.println("emission = " + emission);
+    System.out.println("interactive emission..." + emission);
 
     return emission;
   }

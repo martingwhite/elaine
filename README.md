@@ -5,7 +5,7 @@ elaine
 
 `1.dat` and `2.dat` are sample data files. Columns one and two list the
 emissions and states, respectively. I left the code for generating the data
-in train.m.
+in `train.m`.
 
 ## train.m
 
@@ -18,17 +18,12 @@ $ matlab -nodisplay -r "train('.',2,6);exit"
 `train.m` will loop through every `.dat` in `.` and load the observations
 into two cell arrays for emissions and states.
 
-The model is randomly initialized. Initializing the model from ML estimates
-can be done by simply commenting out the TRGUESS and EMITGUESS blocks and
-reading the data from files.
-
-The guesses are passed to `hmmtrain` with the corpus of observed emission
-sequences to train the model.
+The model is initialized with maximum likelihood estimates. The guesses are
+passed to `hmmtrain` with the corpus of observed emission sequences to train
+train the model.
 
 By default, hidden Markov model functions begin in state 1, so we change
-the initial state distribution to a uniform distribution over states.
-ML estimates may be used by commenting out the line and substituting
-the estimates.
+the initial state distribution to the maximum likelihood estimate.
 
 ## Hmm.java
 
