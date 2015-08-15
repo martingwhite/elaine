@@ -123,6 +123,7 @@ public class Hmm {
       if (variate < p.get(i))
         break;
     }
+    emission += 1; // since these emissions are zero-indexed
     System.out.println("interactive emission..." + emission);
 
     return emission;
