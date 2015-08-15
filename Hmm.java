@@ -56,7 +56,8 @@ public class Hmm {
   }
 
   public int interactive(int currentState) {
-    int istate = currentState + 1; //since we augmented TRANS
+    //int istate = currentState + 1; //since we augmented TRANS
+    int istate = currentState; //since we augmented TRANS
     //System.out.println("istate = " + istate);
 
     List<Double> p = new ArrayList<Double>();
