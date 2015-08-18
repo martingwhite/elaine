@@ -1,3 +1,6 @@
+import java.io.*;
+import java.lang.*;
+import java.nio.file.*;
 import java.util.*;
 import matlabcontrol.*;
 import matlabcontrol.extensions.*;
@@ -7,7 +10,69 @@ public class Hmm {
   private double[][] t_hat;
   private double[][] e_hat;
 
-  public void train(String pathToData, int numStates, int numEmissions) throws
+  public void train(String pathToData, int numStates, int numEmissions) {
+    t_hat = new double[numStates+1][numStates+1];
+    e_hat = new double[numStates+1][numEmissions];
+    Path directory = Paths.get(pathToData);
+    try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(directory,"*.dat")) {
+      for (Path file : directoryStream) {
+        System.out.println(file.toString());
+        Scanner scanner = new Scanner(new File(file.toString()));
+        String line = scanner.nextLine();
+
+        // e_hat is 0-indexed but the data are 1-indexed so we subtract one...
+        int firstEmission = Integer.parseInt(line.trim().split("\t")[0]) - 1;
+        int firstState = Integer.parseInt(line.trim().split("\t")[1]);
+
+        t_hat[0][firstState] += 1; // this row holds the initial state distribution
+        // note that the first row of e_hat is the zero vector
+        e_hat[firstState][firstEmission] += 1;
+
+        int prevState = firstState;
+        int currState;
+        int currEmission;
+
+        while (scanner.hasNextLine()) {
+          line = scanner.nextLine();
+          // e_hat is 0-indexed but the data are 1-indexed...
+          currEmission = Integer.parseInt(line.trim().split("\t")[0]) - 1;
+          currState = Integer.parseInt(line.trim().split("\t")[1]);
+          t_hat[prevState][currState] += 1;
+          e_hat[currState][currEmission] += 1;
+          prevState = currState;
+        }
+        scanner.close();
+      }
+    } catch (IOException | DirectoryIteratorException ex) {
+        ex.printStackTrace();
+    }
+
+    double sum;
+    for (int i = 0; i < numStates + 1; i++) {
+      // normalize rows of t_hat...
+      sum = 0.0;
+      for (double count : t_hat[i]) {
+        sum += count;
+      }
+      if (sum > 0) {
+        for (int j = 0; j < numStates + 1; j++) {
+          t_hat[i][j] /= sum;
+        }
+      }
+      // normalize rows of e_hat...
+      sum = 0.0;
+      for (double count : e_hat[i]) {
+        sum += count;
+      }
+      if (sum > 0) {
+        for (int j = 0; j < numEmissions; j++) {
+          e_hat[i][j] /= sum;
+        }
+      }
+    }
+  }
+
+  public void train2(String pathToData, int numStates, int numEmissions) throws
     MatlabConnectionException, MatlabInvocationException {
     MatlabProxy proxy = factory.getProxy();
     MatlabTypeConverter converter = new MatlabTypeConverter(proxy);
@@ -56,16 +121,13 @@ public class Hmm {
   }
 
   public int interactive(int currentState) {
-    //int istate = currentState + 1; //since we augmented TRANS
-    int istate = currentState; //since we augmented TRANS
+    //int istate = currentState + 1;
+    int istate = currentState;
     //System.out.println("istate = " + istate);
 
     List<Double> p = new ArrayList<Double>();
     List<Integer> c = new ArrayList<Integer>();
 
-    //System.out.println("t_hat[0] = " + Arrays.toString(t_hat[0]));
-    //System.out.println("t_hat[1] = " + Arrays.toString(t_hat[1]));
-    //System.out.println("t_hat[2] = " + Arrays.toString(t_hat[2]));
     double cumsum = 0.0;
     // NOTE t_hat[istate][0] will always be zero...
     for (int j = 0; j < t_hat[0].length; j++) {
@@ -75,13 +137,9 @@ public class Hmm {
         cumsum += t_hat[istate][j];
       }
     }
-    //System.out.println("p = " + Arrays.toString(p.toArray()));
-    //System.out.println("c = " + Arrays.toString(c.toArray()));
 
     Random random = new Random();
     double variate = random.nextDouble();
-    //double variate = 0.9;
-    //System.out.println("variate = " + variate);
 
     int fstate = 0; // how we will index into e_hat
     for (int i = 0; i < p.size(); i++) {
@@ -92,14 +150,12 @@ public class Hmm {
         break;
     }
 
+    // if fstate == 0 then it is an absorbing state...
+    if (fstate == 0)
+        return 0;
+
     p.clear();
     c.clear();
-
-    //System.out.println("getting emission...");
-    //System.out.println("fstate = " + fstate);
-    //System.out.println("e_hat[0] = " + Arrays.toString(e_hat[0]));
-    //System.out.println("e_hat[1] = " + Arrays.toString(e_hat[1]));
-    //System.out.println("e_hat[2] = " + Arrays.toString(e_hat[2]));
 
     cumsum = 0.0;
     for (int j = 0; j < e_hat[0].length; j++) {
@@ -109,14 +165,14 @@ public class Hmm {
         cumsum += e_hat[fstate][j];
       }
     }
-    //System.out.println("p = " + Arrays.toString(p.toArray()));
-    //System.out.println("c = " + Arrays.toString(c.toArray()));
+
+    // if cumsum == 0.0 then no emissions have been observed...
+    if (cumsum == 0.0)
+        return 0;
 
     variate = random.nextDouble();
-    //variate = 0.99785;
-    //System.out.println("variate = " + variate);
 
-    int emission = e_hat[0].length; //row length
+    int emission = -1; // init...it should never return -1
     for (int i = 0; i < p.size(); i++) {
       //System.out.println("p.get(i) = " + p.get(i));
       emission = c.get(i);
@@ -124,7 +180,8 @@ public class Hmm {
       if (variate < p.get(i))
         break;
     }
-    emission += 1; // since these emissions are zero-indexed
+    // since these emission IDs are 0-indexed...
+    emission += 1; // ...but need to return emissions that are 1-indexed
     System.out.println("interactive emission..." + emission);
 
     return emission;
@@ -132,12 +189,27 @@ public class Hmm {
 
   public static void main(String[] args) throws
     MatlabConnectionException, MatlabInvocationException {
+    // using data Carlos sent on 8/16/2015 7:53 PM
+    int numStates = 45;
+    int numEmissions = 381;
+
     Hmm hmm = new Hmm();
-    hmm.train(".", 2, 6); // sample data have 2 states and 6 emissions
+    //hmm.train(".", 2, 6); // sample data have 2 states and 6 emissions
+    hmm.train(".", numStates, numEmissions); // use *.ts.dat
 
-    int[] emissions = hmm.generate(Integer.parseInt(args[0]));
+    // deprecated...
+    //int[] emissions = hmm.generate(Integer.parseInt(args[0]));
 
-    int state = 0;
-    int interactive = hmm.interactive(state);
+    int emission;
+    // currentState == 0 corresponds to the intial state distribution...
+    for (int currentState = 0; currentState < numStates + 1; currentState++) {
+        System.out.println("testing state..." + currentState);
+        for (int j = 0; j < 500; j++) { // test each state 50 times
+            emission = hmm.interactive(currentState);
+            if (emission < 1 || emission > numEmissions) {
+                System.out.println("invalid emission..." + emission);
+            }
+        }
+    }
   }
 }
