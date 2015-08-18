@@ -204,7 +204,7 @@ public class Hmm {
     // currentState == 0 corresponds to the intial state distribution...
     for (int currentState = 0; currentState < numStates + 1; currentState++) {
         System.out.println("testing state..." + currentState);
-        for (int j = 0; j < 500; j++) { // test each state 50 times
+        for (int j = 0; j < 500; j++) { // test each state 500 times
             emission = hmm.interactive(currentState);
             if (emission < 1 || emission > numEmissions) {
                 System.out.println("invalid emission..." + emission);
